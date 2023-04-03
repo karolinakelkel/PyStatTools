@@ -1,5 +1,4 @@
 from math import sqrt
-import scipy.stats as stats
 
 
 class DataSet(list):
@@ -14,6 +13,8 @@ class DataSet(list):
     def __pow__(self, power: int):
         """
         Raise each element of the dataset to the specified power.
+
+        :returns: A new DataSet object with each element raised to the specified power.
         """
 
         return DataSet([value ** power for value in self])
@@ -21,13 +22,11 @@ class DataSet(list):
     def __mul__(self, other: 'DataSet'):
         """
          Compute the element-wise product of two datasets.
+
+         :returns: A new DataSet object with the element-wise product of the two datasets.
         """
 
         return DataSet([first_set_value * second_set_value for first_set_value, second_set_value in zip(self, other)])
-
-
-def z_value(confidence_level=0.95):
-    return round(abs(stats.norm.ppf((1 - confidence_level) / 2)), 2)
 
 
 class DataSetWithStatistics(DataSet):
@@ -38,12 +37,23 @@ class DataSetWithStatistics(DataSet):
         self.__is_num_of_items_even = None
 
     def sum_of_observations(self) -> [int, float]:
+        """
+        Computes the sum of the observations in the dataset.
+
+        :returns: The sum of the observations in the dataset.
+        """
+
         if self.__sum_of_observations is None:
             self.__sum_of_observations = sum(self)
 
         return self.__sum_of_observations
 
     def is_num_of_items_even(self) -> bool:
+        """
+        Determines whether the number of items in the dataset is even.
+
+        :returns: True if the number of items in the dataset is even, False otherwise.
+        """
         if self.__is_num_of_items_even is None:
             self.__is_num_of_items_even = self.size % 2 == 0
 
@@ -53,6 +63,8 @@ class DataSetWithStatistics(DataSet):
         """
         Compute the arithmetic mean of a sorted dataset. If the 'bessel_correction' parameter is set to True,
         the method applies Bessel's correction to the sample mean formula.
+
+        :returns: The arithmetic mean of the dataset.
         """
 
         sum_of_observations = self.sum_of_observations
@@ -65,6 +77,8 @@ class DataSetWithStatistics(DataSet):
     def median(self) -> [int, float]:
         """
         Compute the arithmetic mean of a sorted dataset.
+
+        :returns: The median of the dataset.
         """
 
         if self.is_num_of_items_even() is False:
@@ -76,6 +90,12 @@ class DataSetWithStatistics(DataSet):
         return (self[idx_of_first_mid_value] + self[idx_of_second_mid_value]) / 2
 
     def mode(self) -> [int, float]:
+        """
+        Compute the mode of the dataset.
+
+        :returns: The mode of the dataset.
+        """
+
         freq_dictionary = {}
         for value in self:
             freq_dictionary[value] = freq_dictionary.get(value, 0) + 1
@@ -98,39 +118,88 @@ class DataSetWithStatistics(DataSet):
             raise ValueError('No mode found')
 
     def range(self) -> [int, float]:
+        """
+        Compute the range of the dataset.
+
+        :returns: The range of the dataset.
+        """
+
         return max(self) - min(self)
 
-    def diff_between_value_and_mean(self, squared=True) -> 'DataSetWithStatistics':
+    def diff_between_values_and_mean(self, squared=True) -> 'DataSetWithStatistics':
+        """
+        Compute the difference between each value in the dataset and the arithmetic mean. If the 'squared' parameter is
+        True, the squared differences are returned.
+
+        :returns: A new DataSetWithStatistics object containing the computed differences between each value in the
+        dataset and the arithmetic mean.
+        """
+
         data_set_mean = self.arithmetic_mean()
         diff = DataSetWithStatistics([value - data_set_mean for value in self])
 
         return DataSetWithStatistics(diff ** 2 if squared else diff)
 
     def variance(self, bessel_correction=True):
-        squared_differences = self.diff_between_value_and_mean()
+        """
+        Compute the variance of the dataset. If the 'bessel_correction' parameter is True, Bessel's correction is
+        applied to the sample variance formula.
+
+        :returns: The computed variance as a float.
+        """
+
+        squared_differences = self.diff_between_values_and_mean()
 
         return squared_differences.arithmetic_mean(bessel_correction)
 
     def standard_deviation(self, bessel_correction=True):
+        """
+        Compute the standard deviation of the dataset. If the 'bessel_correction' parameter is True, Bessel's
+        correction is applied to the formula.
+
+        :returns: The computed standard deviation as a float.
+        """
+
         return sqrt(self.variance(bessel_correction))
 
-    def covariance(self, other, bessel_correction=True, total_covariance_only=False):
-        set_1_diff = self.diff_between_value_and_mean(squared=False)
-        set_2_diff = other.diff_between_value_and_mean(squared=False)
+    def covariance(self, other, bessel_correction=True, raw_covariance=False):
+        """
+        Compute the covariance between two datasets. If the 'bessel_correction' parameter is True,
+        Bessel's correction is applied to the covariance formula. If the 'raw_covariance' parameter is True,
+        the raw covariance is returned.
+
+        :returns: The computed covariance between the two datasets as a float, or the raw covariance if
+        the 'raw_covariance' parameter is True.
+        """
+
+        set_1_diff = self.diff_between_values_and_mean(squared=False)
+        set_2_diff = other.diff_between_values_and_mean(squared=False)
         products_of_sets = set_1_diff * set_2_diff
 
-        return sum(products_of_sets) if total_covariance_only \
+        return sum(products_of_sets) if raw_covariance \
             else DataSetWithStatistics(products_of_sets).arithmetic_mean(bessel_correction)
 
     def pearson_correlation_coefficient(self, other):
-        total_covariance = self.covariance(other, total_covariance_only=True)
-        set_1_sum_of_squared_diffs = sum(self.diff_between_value_and_mean(squared=True))
-        set_2_sum_of_squared_diffs = sum(other.diff_between_value_and_mean(squared=True))
+        """
+        Computes the Pearson correlation coefficient between two datasets.
+
+        :returns: The computed Pearson correlation coefficient between two datasets as a float.
+        """
+
+        raw_covariance = self.covariance(other, raw_covariance=True)
+        set_1_sum_of_squared_diffs = sum(self.diff_between_values_and_mean(squared=True))
+        set_2_sum_of_squared_diffs = sum(other.diff_between_values_and_mean(squared=True))
         product_of_roots = sqrt(set_1_sum_of_squared_diffs) * sqrt(set_2_sum_of_squared_diffs)
 
-        return total_covariance / product_of_roots
+        return raw_covariance / product_of_roots
 
     def quantiles(self) -> list:
+        """
+        Computes the first, second (median), and third quartiles of a dataset.
+
+        :returns: A list of the first, second (median), and third quartiles of the dataset.
+        """
+
         sorted_data_set = DataSetWithStatistics(sorted(self))
 
         idx_of_mid_value = sorted_data_set.size // 2
@@ -142,11 +211,22 @@ class DataSetWithStatistics(DataSet):
         return [first_quartile, self.median(), third_quartile]
 
     def interquartile_range(self):
-        quantiles = self.quantiles()
+        """
+        Computes the interquartile range (IQR) of a dataset
 
+        :returns: The computed IQR of the dataset.
+        """
+
+        quantiles = self.quantiles()
         return quantiles[2] - quantiles[0]
 
     def remove_outliers_iqr(self, outlier_step=1.5, log=False):
+        """
+        Removes outliers from a dataset using the interquartile range (IQR) method.
+
+        :returns: None. The method modifies the dataset in place.
+        """
+
         quantiles = self.quantiles()
         first_quantile = quantiles[0]
         third_quantile = quantiles[2]
